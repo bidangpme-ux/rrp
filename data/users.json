@@ -1,0 +1,12 @@
+[
+  {
+    "id": "user_admin",
+    "name": "Administrator Sistem",
+    "email": "admin@instansi.go.id",
+    "username": "admin",
+    "password": "admin",
+    "role": "admin",
+    "department": "Pusat Data & Informasi (Pusdatin)",
+    "createdAt": "2026-01-01T08:00:00Z"
+  }
+]

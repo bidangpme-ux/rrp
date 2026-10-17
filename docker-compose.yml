@@ -1,0 +1,82 @@
+name: epmped-system
+
+services:
+  # 1. Database PostgreSQL 16 (Dikonfigurasi khusus untuk server RAM 4GB Core i5)
+  db:
+    image: postgres:16-alpine
+    container_name: epmped-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: epmped_db
+      POSTGRES_USER: epmped_admin
+      POSTGRES_PASSWORD: PasswordKuatBapperida2026!
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    # Optimasi alokasi RAM agar hemat memori (~120-200MB) dan super stabil
+    command: >
+      postgres -c shared_buffers=256MB
+               -c work_mem=4MB
+               -c maintenance_work_mem=64MB
+               -c effective_cache_size=1GB
+               -c max_connections=50
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - epmped-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U epmped_admin -d epmped_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. Aplikasi Utama E-PMPED Bapperida
+  epmped:
+    image: epmped-bapperida:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: epmped-bapperida
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://epmped_admin:PasswordKuatBapperida2026!@db:5432/epmped_db
+      - DATA_DIR=/app/data
+      - APP_URL=https://pme.cloudpme.my.id
+    volumes:
+      - ./data:/app/data
+    networks:
+      - epmped-net
+    x-casaos:
+      envs:
+        - container: PORT
+          description:
+            en_us: Port web server aplikasi E-PMPED
+          value: "3000"
+      ports:
+        - container: "3000"
+          description:
+            en_us: Web UI port E-PMPED
+      icon: "https://cdn-icons-png.flaticon.com/512/906/906334.png"
+      title:
+        en_us: E-PMPED Bapperida
+        id_id: E-PMPED Bapperida
+      author: Bapperida Tanggamus
+      category: Office
+      description:
+        en_us: Sistem Elektronik Bidang Perencanaan Makro Pengendalian dan Evaluasi Pembangunan Daerah
+        id_id: Sistem Elektronik Bidang Perencanaan Makro Pengendalian dan Evaluasi Pembangunan Daerah
+      developer: Bapperida Tanggamus
+      index: /
+      port_map: "3000"
+      scheme: http
+      store_cache: false
+
+networks:
+  epmped-net:
+    driver: bridge

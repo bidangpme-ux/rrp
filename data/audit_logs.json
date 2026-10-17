@@ -1,0 +1,55 @@
+[
+  {
+    "id": "log_1792247783811_02fbo",
+    "timestamp": "2026-10-17T14:36:23.811Z",
+    "category": "auth",
+    "action": "LOGIN_SUCCESS",
+    "description": "Pengguna \"Administrator Sistem\" (ADMIN) berhasil login ke sistem.",
+    "userId": "user_admin",
+    "userName": "Administrator Sistem",
+    "userRole": "admin",
+    "status": "success",
+    "serverReceivedAt": "2026-10-17T14:36:24.478Z"
+  },
+  {
+    "id": "log_1792247779548_pc17j",
+    "timestamp": "2026-10-17T14:36:19.548Z",
+    "category": "auth",
+    "action": "LOGIN_FAILED",
+    "description": "Percobaan login gagal untuk akun \"Administrator Sistem\": Kata sandi salah.",
+    "userId": "user_admin",
+    "userName": "Administrator Sistem",
+    "userRole": "admin",
+    "status": "danger",
+    "metadata": {
+      "username": "admin"
+    },
+    "serverReceivedAt": "2026-10-17T14:36:22.037Z"
+  },
+  {
+    "id": "log_1792244027108_xwsei",
+    "timestamp": "2026-10-17T13:33:47.108Z",
+    "category": "auth",
+    "action": "AUTO_LOGOUT_TIMEOUT",
+    "description": "Sesi login pengguna \"Administrator Sistem\" (ADMIN) otomatis keluar (logout) karena tidak ada aktivitas selama 15 menit.",
+    "userId": "user_admin",
+    "userName": "Administrator Sistem",
+    "userRole": "admin",
+    "status": "warning",
+    "serverReceivedAt": "2026-10-17T13:33:49.296Z"
+  },
+  {
+    "id": "log_1792151234946_ooi05",
+    "timestamp": "2026-10-16T11:47:14.946Z",
+    "deviceInfo": "Windows 11/10 (Mozilla Firefox)",
+    "ipAddress": "192.168.1.10",
+    "userId": "user_admin",
+    "userName": "Administrator Sistem",
+    "userRole": "admin",
+    "category": "auth",
+    "action": "LOGIN_SUCCESS",
+    "description": "Pengguna \"Administrator Sistem\" (ADMIN) berhasil login ke sistem.",
+    "status": "success",
+    "serverReceivedAt": "2026-10-16T11:47:14.347Z"
+  }
+]

@@ -1,0 +1,89 @@
+[
+  {
+    "id": "agenda_seed_1",
+    "userId": "user_admin",
+    "creatorName": "Administrator Sistem",
+    "title": "Rapat Koordinasi Evaluasi RKPD & Renja Perangkat Daerah",
+    "location": "Ruang Rapat Utama Bapperida Tanggamus",
+    "description": "Pembahasan evaluasi capaian indikator target kinerja triwulan dengan seluruh perwakilan OPD.",
+    "scheduleDate": "2026-10-16",
+    "timeStart": "08:30",
+    "timeEnd": "11:30",
+    "groupJid": "",
+    "createdAt": "2026-10-15T08:00:00Z"
+  },
+  {
+    "id": "agenda_seed_2",
+    "userId": "user_admin",
+    "creatorName": "Administrator Sistem",
+    "title": "Sosialisasi Penyusunan Dokumen Evaluasi DAK Fisik & Non-Fisik",
+    "location": "Aula Bapperida Lantai 2",
+    "description": "Dihadiri Pejabat Pembuat Komitmen (PPK) teknis dan tim pelapor monev instansi.",
+    "scheduleDate": "2026-10-16",
+    "timeStart": "13:30",
+    "timeEnd": "15:45",
+    "groupJid": "",
+    "createdAt": "2026-10-15T09:00:00Z"
+  },
+  {
+    "id": "agenda_seed_3",
+    "userId": "user_admin",
+    "creatorName": "Administrator Sistem",
+    "title": "Monitoring Lapangan Proyek Strategis Pengendalian Banjir & Irigasi",
+    "location": "Kecamatan Semaka & Kota Agung Barat",
+    "description": "Peninjauan progres fisik dan administrasi bersama tim teknis Dinas PUPR Tanggamus.",
+    "scheduleDate": "2026-10-17",
+    "timeStart": "09:00",
+    "timeEnd": "14:00",
+    "groupJid": "",
+    "createdAt": "2026-10-15T10:00:00Z"
+  },
+  {
+    "id": "agenda_rec_1792178869599_dppb",
+    "userId": "user_admin",
+    "creatorName": "Jadwal Rutin Sistem",
+    "title": "Apel Rutin Gabungan Awal Bulan & Pengarahan Pimpinan",
+    "location": "Halaman / Lapangan Kantor Bapperida Tanggamus",
+    "description": "Diikuti oleh seluruh jajaran pejabat struktural, fungsional, dan staf pelaksana Bapperida. (Jadwal Rutin Bulanan)",
+    "scheduleDate": "2026-10-01",
+    "timeStart": "07:30",
+    "timeEnd": "08:30",
+    "createdAt": "2026-10-16T19:27:49.599Z"
+  },
+  {
+    "id": "agenda_rec_1792178869599_gjs6",
+    "userId": "user_admin",
+    "creatorName": "Jadwal Rutin Sistem",
+    "title": "Rapat Koordinasi Evaluasi & Penyusunan Laporan Kinerja Bulanan",
+    "location": "Ruang Rapat Utama Bapperida",
+    "description": "Membahas capaian pelaksanaan program kerja, kendala teknis, dan target tindak lanjut bulanan. (Jadwal Rutin Bulanan)",
+    "scheduleDate": "2026-10-05",
+    "timeStart": "09:00",
+    "timeEnd": "11:30",
+    "createdAt": "2026-10-16T19:27:49.599Z"
+  },
+  {
+    "id": "agenda_rec_1792178869599_k3eb",
+    "userId": "user_admin",
+    "creatorName": "Jadwal Rutin Sistem",
+    "title": "Monitoring & Evaluasi Penyerapan Anggaran Serta Realisasi Fisik (Monev)",
+    "location": "Ruang Rapat Bidang PMPEPD",
+    "description": "Pemeriksaan progres SPJ kegiatan dan sinkronisasi realisasi anggaran kas dinas. (Jadwal Rutin Bulanan)",
+    "scheduleDate": "2026-10-15",
+    "timeStart": "09:30",
+    "timeEnd": "12:00",
+    "createdAt": "2026-10-16T19:27:49.599Z"
+  },
+  {
+    "id": "agenda_rec_1792178869599_upgw",
+    "userId": "user_admin",
+    "creatorName": "Jadwal Rutin Sistem",
+    "title": "Rekonsiliasi Data Capaian Kinerja Subbag & Penutupan Administrasi Bulanan",
+    "location": "Ruang Rapat Bapperida",
+    "description": "Pengumpulan matriks capaian kinerja staf dan penyelarasan berkas pertanggungjawaban kegiatan. (Jadwal Rutin Bulanan)",
+    "scheduleDate": "2026-10-25",
+    "timeStart": "10:00",
+    "timeEnd": "12:00",
+    "createdAt": "2026-10-16T19:27:49.599Z"
+  }
+]

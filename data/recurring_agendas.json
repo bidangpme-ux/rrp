@@ -1,0 +1,46 @@
+[
+  {
+    "id": "rec_001",
+    "title": "Apel Rutin Gabungan Awal Bulan & Pengarahan Pimpinan",
+    "location": "Halaman / Lapangan Kantor Bapperida Tanggamus",
+    "description": "Diikuti oleh seluruh jajaran pejabat struktural, fungsional, dan staf pelaksana Bapperida.",
+    "timeStart": "07:30",
+    "timeEnd": "08:30",
+    "dayOfMonth": 1,
+    "isActive": true,
+    "createdAt": "2026-01-01T00:00:00Z"
+  },
+  {
+    "id": "rec_002",
+    "title": "Rapat Koordinasi Evaluasi & Penyusunan Laporan Kinerja Bulanan",
+    "location": "Ruang Rapat Utama Bapperida",
+    "description": "Membahas capaian pelaksanaan program kerja, kendala teknis, dan target tindak lanjut bulanan.",
+    "timeStart": "09:00",
+    "timeEnd": "11:30",
+    "dayOfMonth": 5,
+    "isActive": true,
+    "createdAt": "2026-01-01T00:00:00Z"
+  },
+  {
+    "id": "rec_003",
+    "title": "Monitoring & Evaluasi Penyerapan Anggaran Serta Realisasi Fisik (Monev)",
+    "location": "Ruang Rapat Bidang PMPEPD",
+    "description": "Pemeriksaan progres SPJ kegiatan dan sinkronisasi realisasi anggaran kas dinas.",
+    "timeStart": "09:30",
+    "timeEnd": "12:00",
+    "dayOfMonth": 15,
+    "isActive": true,
+    "createdAt": "2026-01-01T00:00:00Z"
+  },
+  {
+    "id": "rec_004",
+    "title": "Rekonsiliasi Data Capaian Kinerja Subbag & Penutupan Administrasi Bulanan",
+    "location": "Ruang Rapat Bapperida",
+    "description": "Pengumpulan matriks capaian kinerja staf dan penyelarasan berkas pertanggungjawaban kegiatan.",
+    "timeStart": "10:00",
+    "timeEnd": "12:00",
+    "dayOfMonth": 25,
+    "isActive": true,
+    "createdAt": "2026-01-01T00:00:00Z"
+  }
+]

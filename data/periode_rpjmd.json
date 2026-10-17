@@ -1,0 +1,36 @@
+[
+  {
+    "id": "periode_2025_2030",
+    "nama": "RPJMD Periode 2025 - 2030 (Teknokratik / Berjalan)",
+    "tahunMulai": 2025,
+    "tahunSelesai": 2030,
+    "tahunList": [
+      2025,
+      2026,
+      2027,
+      2028,
+      2029,
+      2030
+    ],
+    "isAktif": true,
+    "keterangan": "Rencana Pembangunan Jangka Menengah Daerah Kabupaten Tanggamus Tahun 2025-2030.",
+    "createdAt": "2025-01-01T00:00:00Z"
+  },
+  {
+    "id": "periode_2021_2026",
+    "nama": "RPJMD Periode 2021 - 2026 (Transisi / Evaluasi)",
+    "tahunMulai": 2021,
+    "tahunSelesai": 2026,
+    "tahunList": [
+      2021,
+      2022,
+      2023,
+      2024,
+      2025,
+      2026
+    ],
+    "isAktif": false,
+    "keterangan": "Dokumen Rencana Pembangunan Jangka Menengah Daerah periode sebelumnya.",
+    "createdAt": "2021-01-01T00:00:00Z"
+  }
+]

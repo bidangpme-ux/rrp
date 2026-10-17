@@ -1,0 +1,8 @@
+{
+  "antiInspectEnabled": true,
+  "blockContextMenu": true,
+  "blockKeyboardShortcuts": true,
+  "detectDevTools": true,
+  "showWarningToast": true,
+  "maskAccessCodes": true
+}
