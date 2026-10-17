@@ -1,0 +1,15 @@
+{
+  "user_admin": {
+    "sessionId": "sess_1792258574469_jqjh2ed",
+    "userId": "user_admin",
+    "userName": "Administrator Sistem",
+    "userRole": "admin",
+    "department": "Pusat Data & Informasi (Pusdatin)",
+    "deviceId": "dev_1792257263141_3vki87b",
+    "deviceName": "Google Chrome (Windows PC)",
+    "ipAddress": "103.126.172.163",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+    "loginTime": "2026-10-17T17:36:15.535Z",
+    "lastHeartbeat": 1792258575535
+  }
+}

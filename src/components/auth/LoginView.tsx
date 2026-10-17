@@ -6,7 +6,9 @@ import {
   EyeOff, 
   AlertCircle,
   ShieldCheck,
-  Clock
+  ShieldAlert,
+  Clock,
+  Smartphone
 } from 'lucide-react';
 
 export const LoginView: React.FC = () => {
@@ -16,10 +18,20 @@ export const LoginView: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [keepLoggedIn, setKeepLoggedIn] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
-  const [sessionExpiredMsg, setSessionExpiredMsg] = useState(() => {
-    return localStorage.getItem('epmped_session_expired') === 'timeout'
-      ? 'Sesi Anda telah berakhir secara otomatis karena tidak ada aktivitas selama 15 menit demi keamanan sistem. Silakan login kembali untuk melanjutkan.'
-      : '';
+  const [sessionExpiredType, setSessionExpiredType] = useState<string | null>(() => {
+    return localStorage.getItem('epmped_session_expired');
+  });
+  const [kickedDevice, setKickedDevice] = useState<string>(() => {
+    return localStorage.getItem('epmped_kicked_device') || 'Perangkat Baru';
+  });
+  const [kickedTime, setKickedTime] = useState<string>(() => {
+    const raw = localStorage.getItem('epmped_kicked_time');
+    if (!raw) return '';
+    try {
+      return new Date(raw).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' WIB';
+    } catch {
+      return '';
+    }
   });
   const [isLoading, setIsLoading] = useState(false);
 
@@ -66,12 +78,53 @@ export const LoginView: React.FC = () => {
             Login
           </h1>
 
-          {sessionExpiredMsg && (
+          {/* Alert 1: Concurrent Login Kickout (Perangkat Lain) */}
+          {sessionExpiredType === 'concurrent_login' && (
+            <div className="mb-5 p-4 rounded-2xl bg-rose-50 border-2 border-rose-300/80 text-rose-950 text-xs shadow-md shadow-rose-900/5 animate-in fade-in slide-in-from-top-2">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-rose-600 to-red-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <ShieldAlert className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-1 flex-wrap">
+                    <p className="font-extrabold text-rose-950 text-xs">
+                      Sesi Di-Logout (Login di Perangkat Lain)
+                    </p>
+                    <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-200 text-rose-800">
+                      1 Akun = 1 Perangkat
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-rose-800 mt-1.5 leading-relaxed">
+                    Akun Anda baru saja digunakan untuk masuk pada perangkat:
+                  </p>
+                  <div className="mt-1 px-2.5 py-1.5 rounded-lg bg-white/90 border border-rose-200 text-[11px] font-semibold text-rose-900 flex items-center justify-between shadow-2xs">
+                    <span className="flex items-center gap-1.5 truncate">
+                      <Smartphone className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                      <span className="truncate">{kickedDevice}</span>
+                    </span>
+                    {kickedTime && (
+                      <span className="font-mono text-[10px] text-rose-600 font-bold shrink-0 ml-2">
+                        {kickedTime}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-rose-700/90 mt-1.5 leading-relaxed">
+                    Demi keamanan data instansi BAPPERIDA, akun tidak diizinkan aktif bersamaan di perangkat berbeda. Sesi pada perangkat ini telah ditutup secara otomatis. Silakan masuk kembali jika ingin memindahkan kendali ke perangkat ini.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Alert 2: Inactivity Timeout (15 Menit) */}
+          {sessionExpiredType === 'timeout' && (
             <div className="mb-4 p-3.5 rounded-xl bg-amber-50 border border-amber-200/90 text-amber-900 text-xs flex items-start gap-2.5 shadow-2xs animate-in fade-in">
               <Clock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <div>
                 <p className="font-bold text-amber-900">Sesi Berakhir (Inaktivitas 15 Menit)</p>
-                <p className="text-[11px] text-amber-700 mt-0.5 leading-relaxed">{sessionExpiredMsg}</p>
+                <p className="text-[11px] text-amber-700 mt-0.5 leading-relaxed">
+                  Sesi Anda telah berakhir secara otomatis karena tidak ada aktivitas selama 15 menit demi keamanan sistem. Silakan login kembali untuk melanjutkan.
+                </p>
               </div>
             </div>
           )}

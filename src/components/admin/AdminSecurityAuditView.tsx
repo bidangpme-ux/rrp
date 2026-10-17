@@ -51,12 +51,68 @@ export const AdminSecurityAuditView: React.FC = () => {
     tableCounts?: Record<string, number>;
   } | null>(null);
   const [isMigrating, setIsMigrating] = useState(false);
+  const [activeSessionsList, setActiveSessionsList] = useState<ActiveUserSession[]>([]);
 
-  // Load logs and db status on mount
+  // Load logs, db status and active sessions on mount
   useEffect(() => {
     loadLogs();
     fetchDbStatus();
-  }, []);
+    fetchActiveSessions();
+
+    const timer = setInterval(() => {
+      fetchActiveSessions();
+    }, 4000);
+
+    return () => clearInterval(timer);
+  }, [currentUser?.id]);
+
+  const fetchActiveSessions = () => {
+    fetch('/api/auth/active-sessions')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && data.success && Array.isArray(data.sessions) && data.sessions.length > 0) {
+          const mapped: ActiveUserSession[] = data.sessions.map((s: any) => ({
+            id: s.id,
+            userId: s.userId,
+            userName: s.userName,
+            userRole: s.userRole,
+            department: s.department,
+            loginTime: new Date(s.loginTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+            lastActive: s.lastActive,
+            ipAddress: s.ipAddress,
+            deviceInfo: s.deviceInfo,
+            isCurrent: s.userId === currentUser?.id,
+          }));
+          setActiveSessionsList(mapped);
+        } else {
+          setActiveSessionsList(AuditLogService.getActiveSessions(currentUser?.id));
+        }
+      })
+      .catch(() => {
+        setActiveSessionsList(AuditLogService.getActiveSessions(currentUser?.id));
+      });
+  };
+
+  const handleForceTerminate = async (userId: string, userName: string) => {
+    if (!confirm(`Putuskan paksa sesi login pengguna "${userName}"? Perangkat pengguna tersebut akan langsung ter-logout otomatis.`)) {
+      return;
+    }
+    try {
+      const res = await fetch('/api/auth/session/force-terminate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(`Sesi login "${userName}" berhasil diputuskan.`);
+        fetchActiveSessions();
+        loadLogs();
+      }
+    } catch (e: any) {
+      showToast(`Gagal: ${e?.message}`);
+    }
+  };
 
   const fetchDbStatus = () => {
     fetch('/api/db/status')
@@ -183,7 +239,7 @@ export const AdminSecurityAuditView: React.FC = () => {
   const blockedInspects = logs.filter((l) => l.category === 'security' || l.action.includes('BLOCKED')).length;
   const totalActions = logs.length;
 
-  const activeSessions = AuditLogService.getActiveSessions(currentUser?.id);
+  const activeSessions = activeSessionsList.length > 0 ? activeSessionsList : AuditLogService.getActiveSessions(currentUser?.id);
 
   if (!isAdmin) {
     return (
@@ -554,42 +610,60 @@ export const AdminSecurityAuditView: React.FC = () => {
 
         {/* 3. ACTIVE SESSIONS MONITOR */}
         <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-2xs">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
             <div className="flex items-center gap-2">
               <Laptop className="w-4 h-4 text-indigo-600" />
               <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                 Sesi Pengguna Yang Sedang Aktif ({activeSessions.length})
               </h3>
             </div>
-            <span className="text-[11px] text-slate-400">
-              Sinkronisasi Waktu Nyata
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                Proteksi 1 Perangkat per Akun (Aktif)
+              </span>
+              <span className="text-[11px] text-slate-400">
+                Sinkronisasi Nyata
+              </span>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {activeSessions.map((sess: ActiveUserSession) => (
               <div
                 key={sess.id}
-                className={`p-3 rounded-xl border flex items-start gap-3 transition-all ${
+                className={`p-3.5 rounded-xl border flex items-start gap-3 transition-all ${
                   sess.isCurrent
-                    ? 'bg-indigo-50/50 border-indigo-200'
-                    : 'bg-slate-50 border-slate-200/80'
+                    ? 'bg-indigo-50/60 border-indigo-200 shadow-2xs'
+                    : 'bg-white border-slate-200 hover:border-slate-300 shadow-2xs'
                 }`}
               >
                 <UserAvatar name={sess.userName} role={sess.userRole} size="sm" />
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-1">
                     <span className="text-xs font-bold text-slate-900 truncate">
                       {sess.userName}
                     </span>
-                    {sess.isCurrent && (
-                      <span className="text-[9px] font-bold bg-indigo-600 text-white px-1.5 py-0.2 rounded">
+                    {sess.isCurrent ? (
+                      <span className="text-[9px] font-bold bg-indigo-600 text-white px-1.5 py-0.5 rounded">
                         Anda
                       </span>
+                    ) : (
+                      <button
+                        onClick={() => handleForceTerminate(sess.userId, sess.userName)}
+                        className="text-[9px] font-bold text-rose-600 hover:text-white hover:bg-rose-600 border border-rose-200 px-1.5 py-0.5 rounded transition-colors cursor-pointer"
+                        title="Putuskan paksa sesi ini sehingga perangkat tersebut otomatis logout"
+                      >
+                        Putuskan Sesi
+                      </button>
                     )}
                   </div>
-                  <div className="text-[10px] text-slate-500 truncate">
-                    {sess.department}
+                  <div className="text-[10px] text-slate-500 truncate mt-0.5">
+                    {sess.department || sess.userRole.toUpperCase()}
+                  </div>
+                  <div className="mt-1 text-[10px] text-slate-600 bg-slate-50 px-2 py-1 rounded-md border border-slate-100 flex items-center gap-1 truncate">
+                    <span className="shrink-0 text-slate-400">📱</span>
+                    <span className="truncate font-medium">{sess.deviceInfo || 'Perangkat Web'}</span>
                   </div>
                   <div className="mt-1 flex items-center justify-between text-[10px] text-slate-400 font-mono">
                     <span>IP: {sess.ipAddress}</span>

@@ -439,7 +439,11 @@ export const SuratFormModal: React.FC<SuratFormModalProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {/* Option 1: File Upload */}
-              <div className="border border-dashed border-slate-300 rounded-xl p-3 text-center bg-slate-50 hover:bg-slate-100 transition-colors flex flex-col items-center justify-center">
+              <div className={`border border-dashed rounded-xl p-3 text-center transition-colors flex flex-col items-center justify-center ${
+                selectedFile && !selectedFile.name.startsWith('Scan_')
+                  ? 'border-indigo-400 bg-indigo-50/70'
+                  : 'border-slate-300 bg-slate-50 hover:bg-slate-100'
+              }`}>
                 <input
                   type="file"
                   id="suratFile"
@@ -462,11 +466,15 @@ export const SuratFormModal: React.FC<SuratFormModalProps> = ({
                 />
                 <label htmlFor="suratFile" className="cursor-pointer w-full flex flex-col items-center">
                   <UploadCloud className="w-5 h-5 text-indigo-600 mb-1" />
-                  <span className="text-xs font-semibold text-indigo-600 truncate max-w-full px-1">
-                    {selectedFile ? selectedFile.name : initialData?.fileName ? `Ganti (${initialData.fileName})` : 'Pilih File Komputer'}
+                  <span className="text-xs font-bold text-indigo-700 truncate max-w-full px-1">
+                    {selectedFile && !selectedFile.name.startsWith('Scan_')
+                      ? selectedFile.name
+                      : initialData?.fileName
+                      ? `Ganti (${initialData.fileName})`
+                      : 'Opsi 1: Upload File Komputer'}
                   </span>
-                  <span className="text-[10px] text-slate-400 mt-0.5">
-                    Unggah berkas PDF / Gambar
+                  <span className="text-[10px] text-slate-500 mt-0.5">
+                    Unggah berkas PDF, Word, atau Gambar
                   </span>
                 </label>
               </div>
@@ -474,17 +482,44 @@ export const SuratFormModal: React.FC<SuratFormModalProps> = ({
               {/* Option 2: Direct Scanner */}
               <div
                 onClick={() => setIsScannerOpen(true)}
-                className="border border-dashed border-emerald-300 rounded-xl p-3 text-center bg-emerald-50/50 hover:bg-emerald-100/60 transition-colors cursor-pointer flex flex-col items-center justify-center"
+                className={`border border-dashed rounded-xl p-3 text-center transition-colors cursor-pointer flex flex-col items-center justify-center ${
+                  selectedFile && selectedFile.name.startsWith('Scan_')
+                    ? 'border-emerald-500 bg-emerald-100/70 ring-2 ring-emerald-500/20'
+                    : 'border-emerald-300 bg-emerald-50/60 hover:bg-emerald-100/70'
+                }`}
               >
                 <Scan className="w-5 h-5 text-emerald-600 mb-1" />
-                <span className="text-xs font-bold text-emerald-800">
-                  Scan Dokumen Langsung
+                <span className="text-xs font-bold text-emerald-800 truncate max-w-full px-1">
+                  {selectedFile && selectedFile.name.startsWith('Scan_')
+                    ? selectedFile.name
+                    : 'Opsi 2: Scan Mesin Scanner'}
                 </span>
-                <span className="text-[10px] text-emerald-600/80 mt-0.5">
-                  Dari mesin scanner fisik / kamera
+                <span className="text-[10px] text-emerald-700/80 mt-0.5">
+                  {selectedFile && selectedFile.name.startsWith('Scan_')
+                    ? '✓ Berkas PDF Berhasil Dipindai (Klik untuk scan ulang)'
+                    : 'Pindai langsung via Epson, Canon, HP, Brother, USB'}
                 </span>
               </div>
             </div>
+
+            {selectedFile && (
+              <div className="mt-2.5 p-2 rounded-xl bg-slate-100 border border-slate-200 text-xs flex items-center justify-between">
+                <div className="flex items-center gap-2 truncate pr-2">
+                  <FileText className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span className="font-semibold text-slate-800 truncate">{selectedFile.name}</span>
+                  <span className="text-[10px] text-slate-500 font-mono shrink-0">
+                    ({(selectedFile.size / 1024).toFixed(1)} KB)
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedFile(null)}
+                  className="text-[10px] text-rose-600 hover:text-rose-700 font-bold px-2 py-0.5 rounded hover:bg-rose-50 cursor-pointer"
+                >
+                  Hapus Lampiran
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Modal Actions */}

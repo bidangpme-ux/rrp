@@ -146,13 +146,17 @@ function saveItemFileToDisk(item: any, usersList: any[]) {
   }
 }
 
-// Initialize seed data on disk if not present
-const initialUsersOnBoot = loadJsonFile('users.json', INITIAL_USERS);
-loadJsonFile('storage_items.json', INITIAL_ITEMS);
-loadJsonFile('surat.json', INITIAL_SURAT);
-loadJsonFile('iku.json', INITIAL_IKU_ITEMS);
-loadJsonFile('periode_rpjmd.json', INITIAL_PERIODE_LIST);
-loadJsonFile('tujuan_sasaran.json', INITIAL_TUJUAN_SASARAN_ITEMS);
+// System meta flag to track if initialization was ever completed
+const systemMeta = loadJsonFile<{ initialized: boolean; seededAt?: string }>('system_meta.json', { initialized: false });
+
+// Initialize seed data on disk ONLY if the system has NEVER been initialized before.
+// If already initialized, empty state ([] or custom records) must be respected and NEVER overwritten!
+const initialUsersOnBoot = loadJsonFile('users.json', systemMeta.initialized ? [] : INITIAL_USERS);
+loadJsonFile('storage_items.json', systemMeta.initialized ? [] : INITIAL_ITEMS);
+loadJsonFile('surat.json', systemMeta.initialized ? [] : INITIAL_SURAT);
+loadJsonFile('iku.json', systemMeta.initialized ? [] : INITIAL_IKU_ITEMS);
+loadJsonFile('periode_rpjmd.json', systemMeta.initialized ? [] : INITIAL_PERIODE_LIST);
+loadJsonFile('tujuan_sasaran.json', systemMeta.initialized ? [] : INITIAL_TUJUAN_SASARAN_ITEMS);
 loadJsonFile('security_config.json', DEFAULT_SECURITY_CONFIG);
 loadJsonFile('agendas.json', []);
 loadJsonFile('bot_settings.json', { fonnteToken: '', defaultGroupJid: '', isActive: true });
@@ -161,13 +165,21 @@ loadJsonFile('agenda_reminders_log.json', []);
 // Ensure folders exist on startup
 ensureUserStorageFolders(initialUsersOnBoot);
 
-// Auto-seed into PostgreSQL if connected and database is fresh
+// Auto-seed into PostgreSQL if connected and database is brand new
 async function autoSeedPostgresIfFresh() {
   if (!pgService.getStatus().connected) return;
   try {
+    const meta = loadJsonFile<{ initialized: boolean }>('system_meta.json', { initialized: false });
+    const settingSeeded = await pgService.getSetting('initial_seed_done');
+
+    // If the system was already initialized, NEVER auto-refill or override user emptied data!
+    if (meta.initialized || (settingSeeded as any)?.done) {
+      return;
+    }
+
     const existingUsers = await pgService.getUsers();
     if (!existingUsers || existingUsers.length === 0) {
-      console.log('🌱 Database PostgreSQL masih kosong, melakukan auto-seeding data awal instansi...');
+      console.log('🌱 Database PostgreSQL masih kosong, melakukan auto-seeding data awal instansi pertama kali...');
       const users = loadJsonFile('users.json', INITIAL_USERS);
       const items = loadJsonFile('storage_items.json', INITIAL_ITEMS);
       const suratList = loadJsonFile('surat.json', INITIAL_SURAT);
@@ -183,7 +195,13 @@ async function autoSeedPostgresIfFresh() {
       await pgService.savePeriodeList(periodeList);
       await pgService.saveTujuanSasaranList(tujuanSasaranList);
       await pgService.saveSetting('security_config', securityConfig);
+      await pgService.saveSetting('initial_seed_done', { done: true, seededAt: new Date().toISOString() });
+      saveJsonFile('system_meta.json', { initialized: true, seededAt: new Date().toISOString() });
       console.log('✅ Auto-seeding PostgreSQL berhasil diselesaikan!');
+    } else {
+      // Existing data already present, mark initialized so it never overwrites in future
+      await pgService.saveSetting('initial_seed_done', { done: true, timestamp: new Date().toISOString() });
+      saveJsonFile('system_meta.json', { initialized: true, timestamp: new Date().toISOString() });
     }
   } catch (err) {
     console.warn('[PostgreSQL AutoSeed Error]:', err);
@@ -465,14 +483,76 @@ app.post('/api/db/reset', async (_req: Request, res: Response) => {
   res.json({ success: true, message: 'Seluruh database aplikasi berhasil direset ke pengaturan awal.' });
 });
 
+// 12. Clear Demo Data (Leave clean workspace for actual government use)
+app.post('/api/db/clear-demo-data', async (req: Request, res: Response) => {
+  try {
+    const keepAdmin = req.body?.keepAdmin !== false;
+
+    // 1. Clear items and surat
+    saveJsonFile('storage_items.json', []);
+    saveJsonFile('surat.json', []);
+    saveJsonFile('iku.json', []);
+    saveJsonFile('agendas.json', []);
+
+    // 2. Clean physical demo files from disk
+    try {
+      const publicDir = path.join(STORAGE_FILES_DIR, 'Folder_Publik');
+      const bidangDir = path.join(STORAGE_FILES_DIR, 'Menu_Bidang');
+      if (fs.existsSync(publicDir)) {
+        fs.rmSync(publicDir, { recursive: true, force: true });
+        fs.mkdirSync(publicDir, { recursive: true });
+      }
+      if (fs.existsSync(bidangDir)) {
+        fs.rmSync(bidangDir, { recursive: true, force: true });
+        fs.mkdirSync(bidangDir, { recursive: true });
+      }
+    } catch (e) {
+      console.warn('[ClearDemo] Gagal membersihkan folder fisik demo:', e);
+    }
+
+    // 3. Clear in PostgreSQL if connected
+    if (pgService.getStatus().connected) {
+      await pgService.saveStorageItems([]);
+      await pgService.saveSuratList([]);
+      await pgService.saveIKUList([]);
+      await pgService.clearAgendas();
+    }
+
+    // 4. Handle users: keep only admin or existing admin account
+    let currentUsers = loadJsonFile<any[]>('users.json', INITIAL_USERS);
+    if (keepAdmin) {
+      const admins = currentUsers.filter((u) => u.role === 'admin' || u.username === 'admin' || u.id === 'user_admin');
+      currentUsers = admins.length > 0 ? admins : [INITIAL_USERS[0]];
+      saveJsonFile('users.json', currentUsers);
+      if (pgService.getStatus().connected) {
+        await pgService.saveUsers(currentUsers);
+      }
+    }
+
+    // 5. Mark system as initialized so auto-seed NEVER runs again
+    saveJsonFile('system_meta.json', { initialized: true, demoClearedAt: new Date().toISOString() });
+    if (pgService.getStatus().connected) {
+      await pgService.saveSetting('initial_seed_done', { done: true, cleared: true, timestamp: new Date().toISOString() });
+    }
+
+    res.json({
+      success: true,
+      message: 'Seluruh data bawaan (demo) berhasil dikosongkan. Sistem sekarang bersih dan siap digunakan secara resmi!',
+      remainingUsers: currentUsers.length,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: `Gagal mengosongkan data: ${err?.message}` });
+  }
+});
+
 // =========================================================================
 //                   SECURITY & AUDIT LOG API ENDPOINTS
 // =========================================================================
 
 const serverAuditLogs: any[] = loadJsonFile<any[]>('audit_logs.json', []);
 
-// 1. Client IP & Device Info endpoint
-app.get('/api/security/client-info', (req: Request, res: Response) => {
+// Helper to extract client IP
+function getReqClientIp(req: Request): string {
   const cfIp = req.headers['cf-connecting-ip'] as string | undefined;
   const forwarded = req.headers['x-forwarded-for'];
   const rawIp = cfIp || (Array.isArray(forwarded)
@@ -480,7 +560,58 @@ app.get('/api/security/client-info', (req: Request, res: Response) => {
     : typeof forwarded === 'string'
     ? forwarded.split(',')[0].trim()
     : req.socket.remoteAddress);
-  const ip = rawIp && rawIp !== '::1' && rawIp !== '127.0.0.1' ? rawIp.replace(/^.*:/, '') : '127.0.0.1';
+  return rawIp && rawIp !== '::1' && rawIp !== '127.0.0.1' ? rawIp.replace(/^.*:/, '') : '127.0.0.1';
+}
+
+// -------------------------------------------------------------------------
+//        SINGLE ACTIVE DEVICE ENFORCEMENT & CONCURRENT SESSION CONTROL
+// -------------------------------------------------------------------------
+
+interface UserActiveSessionRecord {
+  sessionId: string;
+  userId: string;
+  userName: string;
+  userRole: string;
+  department?: string;
+  deviceId: string;
+  deviceName: string;
+  ipAddress: string;
+  userAgent: string;
+  loginTime: string;
+  lastHeartbeat: number;
+}
+
+interface KickedSessionInfo {
+  kickedByDevice: string;
+  kickedAt: string;
+  userId: string;
+  userName: string;
+}
+
+// Map of userId -> UserActiveSessionRecord
+const serverActiveSessions: Record<string, UserActiveSessionRecord> = loadJsonFile<Record<string, UserActiveSessionRecord>>('active_sessions.json', {});
+
+// Map of kicked sessionId -> KickedSessionInfo (retained in memory so old device receives the exact kick reason)
+const serverKickedSessions: Record<string, KickedSessionInfo> = {};
+
+// Clean up stale sessions inactive for more than 4 hours
+setInterval(() => {
+  const now = Date.now();
+  let modified = false;
+  for (const [uid, sess] of Object.entries(serverActiveSessions)) {
+    if (now - sess.lastHeartbeat > 4 * 60 * 60 * 1000) {
+      delete serverActiveSessions[uid];
+      modified = true;
+    }
+  }
+  if (modified) {
+    saveJsonFile('active_sessions.json', serverActiveSessions);
+  }
+}, 15 * 60 * 1000);
+
+// 1. Client IP & Device Info endpoint
+app.get('/api/security/client-info', (req: Request, res: Response) => {
+  const ip = getReqClientIp(req);
   res.json({
     ip,
     userAgent: req.headers['user-agent'] || '',
@@ -489,6 +620,198 @@ app.get('/api/security/client-info', (req: Request, res: Response) => {
     cfCountry: (req.headers['cf-ipcountry'] as string) || undefined,
     timestamp: new Date().toISOString(),
   });
+});
+
+// A. Register / Claim Active Session (Called on user or admin login)
+app.post('/api/auth/session/register', async (req: Request, res: Response) => {
+  try {
+    const { userId, userName, userRole, department, sessionId, deviceId, deviceName } = req.body;
+    if (!userId || !sessionId) {
+      return res.status(400).json({ success: false, message: 'userId dan sessionId wajib disertakan.' });
+    }
+
+    const ipAddress = getReqClientIp(req);
+    const userAgent = (req.headers['user-agent'] as string) || '';
+    const nowIso = new Date().toISOString();
+    const friendlyDevice = deviceName || 'Perangkat Baru';
+
+    // Check if user already has an active session on another device or tab
+    const existing = serverActiveSessions[userId];
+    if (existing && existing.sessionId !== sessionId) {
+      // PREVIOUS ACTIVE SESSION FOUND -> KICK IT IMMEDIATELY!
+      serverKickedSessions[existing.sessionId] = {
+        kickedByDevice: friendlyDevice,
+        kickedAt: nowIso,
+        userId,
+        userName: userName || existing.userName,
+      };
+
+      // Record security audit log for concurrent session kick
+      const auditEntry = {
+        id: `audit_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        timestamp: nowIso,
+        category: 'auth',
+        action: 'CONCURRENT_LOGIN_KICK',
+        description: `Akun "${userName || existing.userName}" (${(userRole || existing.userRole).toUpperCase()}) masuk di perangkat baru "${friendlyDevice}" (IP: ${ipAddress}). Sesi pada perangkat sebelumnya ("${existing.deviceName || 'Perangkat Lama'}" - IP: ${existing.ipAddress}) otomatis di-logout untuk mencegah penggunaan bersamaan di perangkat berbeda.`,
+        userId,
+        userName: userName || existing.userName,
+        userRole: userRole || existing.userRole,
+        ipAddress,
+        userAgent,
+        deviceInfo: friendlyDevice,
+        status: 'warning',
+        metadata: {
+          previousSessionId: existing.sessionId,
+          previousDevice: existing.deviceName,
+          previousIp: existing.ipAddress,
+          newSessionId: sessionId,
+          newDevice: friendlyDevice,
+          newIp: ipAddress,
+        },
+      };
+
+      serverAuditLogs.unshift(auditEntry);
+      if (serverAuditLogs.length > 1000) serverAuditLogs.pop();
+      saveJsonFile('audit_logs.json', serverAuditLogs);
+
+      if (pgService.getStatus().connected) {
+        await pgService.insertAuditLog(auditEntry);
+      }
+      console.log(`[Security] User "${userName || existing.userName}" logged in from "${friendlyDevice}" (IP: ${ipAddress}). Previous session ${existing.sessionId} kicked out.`);
+    }
+
+    // Save/update active session
+    serverActiveSessions[userId] = {
+      sessionId,
+      userId,
+      userName: userName || 'Pengguna',
+      userRole: userRole || 'user',
+      department: department || '',
+      deviceId: deviceId || 'dev_unknown',
+      deviceName: friendlyDevice,
+      ipAddress,
+      userAgent,
+      loginTime: nowIso,
+      lastHeartbeat: Date.now(),
+    };
+
+    saveJsonFile('active_sessions.json', serverActiveSessions);
+
+    res.json({
+      success: true,
+      sessionId,
+      message: 'Sesi aktif berhasil didaftarkan.',
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err?.message });
+  }
+});
+
+// B. Session Heartbeat & Concurrent Check (Polled by client every 2-3 seconds)
+app.post('/api/auth/session/heartbeat', (req: Request, res: Response) => {
+  const { userId, sessionId } = req.body;
+  if (!userId || !sessionId) {
+    return res.status(400).json({ valid: false, message: 'Parameter userId dan sessionId wajib disertakan.' });
+  }
+
+  // 1. Check if this session was explicitly recorded as kicked
+  const kicked = serverKickedSessions[sessionId];
+  if (kicked) {
+    return res.json({
+      valid: false,
+      reason: 'concurrent_login',
+      kickedByDevice: kicked.kickedByDevice,
+      kickedAt: kicked.kickedAt,
+      message: `Akun Anda baru saja masuk pada perangkat lain (${kicked.kickedByDevice}). Sesi pada perangkat ini telah dinonaktifkan secara otomatis.`,
+    });
+  }
+
+  // 2. Check current active session for this user
+  const current = serverActiveSessions[userId];
+  if (!current) {
+    // Session is not found on server (e.g. server reset or manual termination)
+    return res.json({ valid: false, reason: 'no_active_session' });
+  }
+
+  if (current.sessionId !== sessionId) {
+    // Another device claimed active session for this user!
+    return res.json({
+      valid: false,
+      reason: 'concurrent_login',
+      kickedByDevice: current.deviceName || 'Perangkat Lain',
+      kickedAt: current.loginTime,
+      message: `Akun Anda telah aktif pada perangkat lain (${current.deviceName}). Sesi pada perangkat ini telah ditutup.`,
+    });
+  }
+
+  // Session is valid -> update heartbeat timestamp
+  current.lastHeartbeat = Date.now();
+  res.json({ valid: true });
+});
+
+// C. Session Logout (Removes active session on explicit logout)
+app.post('/api/auth/session/logout', (req: Request, res: Response) => {
+  const { userId, sessionId } = req.body;
+  if (userId) {
+    const current = serverActiveSessions[userId];
+    if (current && (!sessionId || current.sessionId === sessionId)) {
+      delete serverActiveSessions[userId];
+      saveJsonFile('active_sessions.json', serverActiveSessions);
+    }
+  }
+  if (sessionId && serverKickedSessions[sessionId]) {
+    delete serverKickedSessions[sessionId];
+  }
+  res.json({ success: true, message: 'Sesi aktif berhasil dikeluarkan.' });
+});
+
+// D. Admin Force Terminate Session
+app.post('/api/auth/session/force-terminate', async (req: Request, res: Response) => {
+  const { userId } = req.body;
+  if (!userId) {
+    return res.status(400).json({ success: false, message: 'userId wajib disertakan.' });
+  }
+  const current = serverActiveSessions[userId];
+  if (current) {
+    serverKickedSessions[current.sessionId] = {
+      kickedByDevice: 'Administrator Sistem (Pemutusan Paksa)',
+      kickedAt: new Date().toISOString(),
+      userId,
+      userName: current.userName,
+    };
+    delete serverActiveSessions[userId];
+    saveJsonFile('active_sessions.json', serverActiveSessions);
+  }
+  res.json({ success: true, message: 'Sesi pengguna berhasil diputuskan secara paksa.' });
+});
+
+// E. Get Real Active Sessions (For Admin Real-time Monitoring)
+app.get('/api/auth/active-sessions', (_req: Request, res: Response) => {
+  const now = Date.now();
+  const list = Object.values(serverActiveSessions).map((sess) => {
+    const diffSec = Math.floor((now - sess.lastHeartbeat) / 1000);
+    let statusText = 'Aktif saat ini';
+    if (diffSec > 60) {
+      statusText = `${Math.floor(diffSec / 60)} menit lalu`;
+    } else if (diffSec > 10) {
+      statusText = `${diffSec} detik lalu`;
+    }
+
+    return {
+      id: sess.sessionId,
+      userId: sess.userId,
+      userName: sess.userName,
+      userRole: sess.userRole,
+      department: sess.department || '',
+      loginTime: sess.loginTime,
+      lastActive: statusText,
+      ipAddress: sess.ipAddress,
+      deviceInfo: sess.deviceName,
+      userAgent: sess.userAgent,
+    };
+  });
+
+  res.json({ success: true, sessions: list });
 });
 
 // 2. Receive and record audit log on server
@@ -1097,6 +1420,53 @@ cron.schedule('0 6 * * *', () => {
 // =========================================================================
 //                   UNIVERSAL SCANNER HARDWARE & ESCL PROXY
 // =========================================================================
+
+// Test Scanner Connection & Diagnostic Ping
+app.post('/api/scanner/test-connection', async (req: Request, res: Response) => {
+  const { ip, port } = req.body;
+  if (!ip) {
+    return res.status(400).json({ success: false, message: 'Alamat IP Scanner wajib diisi.' });
+  }
+
+  const scannerPort = port || 80;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 3500);
+
+  try {
+    const testUrl = `http://${ip}:${scannerPort}/eSCL/ScannerCapabilities`;
+    let isReachable = false;
+    let serverHeader = '';
+    try {
+      const pingRes = await fetch(testUrl, { signal: controller.signal });
+      isReachable = pingRes.ok || pingRes.status === 404 || pingRes.status === 401;
+      serverHeader = pingRes.headers.get('server') || '';
+    } catch {
+      try {
+        const rootRes = await fetch(`http://${ip}:${scannerPort}/`, { signal: controller.signal });
+        isReachable = rootRes.ok;
+        serverHeader = rootRes.headers.get('server') || '';
+      } catch {
+        isReachable = false;
+      }
+    }
+
+    res.json({
+      success: true,
+      reachable: isReachable,
+      ip,
+      port: scannerPort,
+      serverHeader,
+      message: isReachable
+        ? `Perangkat scanner di ${ip}:${scannerPort} aktif dan merespons.`
+        : `Tidak ada respons dari ${ip}:${scannerPort}. Jika scanner berada di jaringan lokal LAN/Wi-Fi kantor (IP lokal), sistem akan menggunakan engine pemindai lokal berkecepatan tinggi.`,
+    });
+  } catch (err: any) {
+    res.json({ success: false, reachable: false, message: err?.message });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+});
+
 app.post('/api/scanner/escl-scan', async (req: Request, res: Response) => {
   const { ip, port, resolution, colorMode, source, paperSize } = req.body;
   if (!ip) {
@@ -1179,6 +1549,9 @@ app.post('/api/scanner/escl-scan', async (req: Request, res: Response) => {
 // Setup Vite or Static File Serving
 async function startServer() {
   // Connect and initialize PostgreSQL if DATABASE_URL is configured
+  pgService.setOnConnectCallback(() => {
+    autoSeedPostgresIfFresh().catch((e) => console.warn('[AutoSeed Error]:', e));
+  });
   await pgService.checkAndInit();
   await autoSeedPostgresIfFresh();
 

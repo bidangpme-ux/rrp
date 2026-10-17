@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS users (
     role VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'user', 'bidang')),
     department VARCHAR(150) DEFAULT 'Umum',
     can_manage_iku BOOLEAN DEFAULT FALSE,
+    can_input_agenda BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 

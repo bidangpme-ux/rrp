@@ -50,6 +50,13 @@ class PgDatabaseService {
     }
   }
 
+  private retryInterval: any = null;
+  private onConnectCallback?: () => void;
+
+  public setOnConnectCallback(cb: () => void) {
+    this.onConnectCallback = cb;
+  }
+
   public async checkAndInit(): Promise<boolean> {
     if (!this.pool) {
       return false;
@@ -63,8 +70,22 @@ class PgDatabaseService {
         this.statusMessage = 'Terhubung ke PostgreSQL';
         console.log('✅ Berhasil terhubung ke database PostgreSQL!');
 
+        if (this.retryInterval) {
+          clearInterval(this.retryInterval);
+          this.retryInterval = null;
+        }
+
         // Run DDL to ensure all tables exist
         await this.createTablesIfNotExist(client);
+
+        if (this.onConnectCallback) {
+          try {
+            this.onConnectCallback();
+          } catch (e) {
+            console.warn('[PostgreSQL onConnectCallback error]:', e);
+          }
+        }
+
         return true;
       } finally {
         client.release();
@@ -72,7 +93,19 @@ class PgDatabaseService {
     } catch (err: any) {
       this.isConnected = false;
       this.statusMessage = `Koneksi gagal: ${err.message}`;
-      console.warn('⚠️ PostgreSQL offline atau tidak dapat dijangkau. Fallback ke file JSON:', err.message);
+      console.warn('⚠️ PostgreSQL offline atau belum siap. Fallback ke file JSON:', err.message);
+
+      // Start automatic background retry if not running
+      if (!this.retryInterval && process.env.DATABASE_URL) {
+        this.retryInterval = setInterval(async () => {
+          console.log('🔄 [PostgreSQL Auto-Retry] Mencoba menghubungkan ke PostgreSQL...');
+          const ok = await this.checkAndInit();
+          if (ok) {
+            console.log('🎉 [PostgreSQL Auto-Retry] PostgreSQL berhasil terhubung!');
+          }
+        }, 8000);
+      }
+
       return false;
     }
   }
@@ -88,6 +121,7 @@ class PgDatabaseService {
         role VARCHAR(20) NOT NULL,
         department VARCHAR(150) DEFAULT 'Umum',
         can_manage_iku BOOLEAN DEFAULT FALSE,
+        can_input_agenda BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
       );
 
@@ -313,6 +347,7 @@ class PgDatabaseService {
         role: r.role,
         department: r.department,
         canManageIKU: r.can_manage_iku,
+        canInputAgenda: r.can_input_agenda,
         createdAt: r.created_at?.toISOString ? r.created_at.toISOString() : r.created_at,
       }));
     } catch (err) {
@@ -328,8 +363,8 @@ class PgDatabaseService {
       await client.query('BEGIN');
       for (const u of users) {
         await client.query(
-          `INSERT INTO users (id, name, email, username, password, role, department, can_manage_iku, created_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          `INSERT INTO users (id, name, email, username, password, role, department, can_manage_iku, can_input_agenda, created_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
            ON CONFLICT (id) DO UPDATE SET
              name = EXCLUDED.name,
              email = EXCLUDED.email,
@@ -337,7 +372,8 @@ class PgDatabaseService {
              password = EXCLUDED.password,
              role = EXCLUDED.role,
              department = EXCLUDED.department,
-             can_manage_iku = EXCLUDED.can_manage_iku`,
+             can_manage_iku = EXCLUDED.can_manage_iku,
+             can_input_agenda = EXCLUDED.can_input_agenda`,
           [
             u.id,
             u.name,
@@ -347,6 +383,7 @@ class PgDatabaseService {
             u.role || 'user',
             u.department || 'Umum',
             Boolean(u.canManageIKU),
+            Boolean(u.canInputAgenda),
             u.createdAt || new Date().toISOString(),
           ]
         );
@@ -1054,6 +1091,17 @@ class PgDatabaseService {
       return true;
     } catch (err: any) {
       console.warn('[PG agendas] Delete agenda error:', err.message);
+      return false;
+    }
+  }
+
+  public async clearAgendas(): Promise<boolean> {
+    if (!this.isConnected || !this.pool) return false;
+    try {
+      await this.pool.query('DELETE FROM agendas');
+      return true;
+    } catch (err: any) {
+      console.warn('[PG agendas] Clear agendas error:', err.message);
       return false;
     }
   }

@@ -1025,6 +1025,24 @@ export class StorageService {
     localStorage.setItem(STORAGE_KEY_TUJUAN_SASARAN, JSON.stringify(INITIAL_TUJUAN_SASARAN_ITEMS));
     fetch('/api/db/reset', { method: 'POST' }).catch(() => {});
   }
+
+  static async clearDemoData(): Promise<boolean> {
+    try {
+      localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify([]));
+      localStorage.setItem(STORAGE_KEY_SURAT, JSON.stringify([]));
+      localStorage.setItem(STORAGE_KEY_IKU, JSON.stringify([]));
+
+      const res = await fetch('/api/db/clear-demo-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keepAdmin: true }),
+      });
+      return res.ok;
+    } catch (err) {
+      console.warn('[StorageService] Gagal clear demo data:', err);
+      return false;
+    }
+  }
 }
 
 

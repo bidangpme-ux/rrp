@@ -51,6 +51,66 @@ interface AuthContextType {
   }) => Promise<{ success: boolean; message?: string }>;
 }
 
+// =========================================================================
+//        DEVICE DETECTION & SINGLE ACTIVE SESSION HELPERS
+// =========================================================================
+
+function getClientDeviceLabel(): string {
+  if (typeof navigator === 'undefined') return 'Perangkat Web';
+  const ua = navigator.userAgent;
+  let os = 'Desktop PC';
+  if (/Windows/i.test(ua)) os = 'Windows PC';
+  else if (/Macintosh|Mac OS X/i.test(ua)) os = 'Mac';
+  else if (/Android/i.test(ua)) os = 'Perangkat Android';
+  else if (/iPhone|iPad|iPod/i.test(ua)) os = 'iPhone / iPad';
+  else if (/Linux/i.test(ua)) os = 'Linux PC';
+
+  let browser = 'Browser Web';
+  if (/Edg/i.test(ua)) browser = 'Microsoft Edge';
+  else if (/Chrome/i.test(ua)) browser = 'Google Chrome';
+  else if (/Firefox/i.test(ua)) browser = 'Mozilla Firefox';
+  else if (/Safari/i.test(ua)) browser = 'Apple Safari';
+  else if (/Opera|OPR/i.test(ua)) browser = 'Opera';
+
+  return `${browser} (${os})`;
+}
+
+function getClientDeviceId(): string {
+  if (typeof window === 'undefined') return 'dev_default';
+  let deviceId = localStorage.getItem('epmped_device_id');
+  if (!deviceId) {
+    deviceId = `dev_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    localStorage.setItem('epmped_device_id', deviceId);
+  }
+  return deviceId;
+}
+
+function generateNewSessionId(): string {
+  return `sess_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+}
+
+async function registerSessionOnServer(user: User, sessionId: string) {
+  try {
+    const deviceId = getClientDeviceId();
+    const deviceName = getClientDeviceLabel();
+    await fetch('/api/auth/session/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        department: user.department,
+        sessionId,
+        deviceId,
+        deviceName,
+      }),
+    });
+  } catch (err) {
+    console.warn('[Session] Gagal registrasi sesi ke server:', err);
+  }
+}
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -58,7 +118,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentUser, setCurrentUser] = useState<User | null>(() => StorageService.getCurrentUser());
   const isInitialMount = React.useRef(true);
 
-  // On mount: sync all data from server database to ensure newly added users are loaded
+  // On mount: sync all data from server database and register active session
   useEffect(() => {
     let isMounted = true;
     StorageService.syncWithServer().then((synced) => {
@@ -70,6 +130,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (fresh) {
             setCurrentUser(fresh);
             StorageService.setCurrentUser(fresh);
+            
+            // Ensure session is registered with server
+            let sessId = localStorage.getItem('epmped_session_id');
+            if (!sessId) {
+              sessId = generateNewSessionId();
+              localStorage.setItem('epmped_session_id', sessId);
+            }
+            registerSessionOnServer(fresh, sessId);
           }
         }
       }
@@ -89,6 +157,88 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     StorageService.setCurrentUser(currentUser);
+  }, [currentUser]);
+
+  // =========================================================================
+  //   SINGLE ACTIVE DEVICE CHECK: 1 AKUN HANYA BISA DIAKSES DI 1 PERANGKAT
+  //   Jika akun dibuka di perangkat lain, sesi di perangkat ini otomatis keluar
+  // =========================================================================
+  useEffect(() => {
+    if (!currentUser) return;
+
+    let sessId = localStorage.getItem('epmped_session_id');
+    if (!sessId) {
+      sessId = generateNewSessionId();
+      localStorage.setItem('epmped_session_id', sessId);
+      registerSessionOnServer(currentUser, sessId);
+    }
+
+    const checkConcurrentSession = async () => {
+      const activeSessId = localStorage.getItem('epmped_session_id');
+      if (!activeSessId) return;
+
+      try {
+        const res = await fetch('/api/auth/session/heartbeat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: currentUser.id,
+            sessionId: activeSessId,
+          }),
+        });
+
+        if (!res.ok) return;
+        const data = await res.json();
+
+        if (data && data.valid === false) {
+          if (data.reason === 'concurrent_login') {
+            // TERDETEKSI LOGIN DI PERANGKAT LAIN -> KELUARKAN OTOMATIS!
+            const kickedBy = data.kickedByDevice || 'Perangkat Baru';
+            const kickedAt = data.kickedAt || new Date().toISOString();
+
+            localStorage.setItem('epmped_session_expired', 'concurrent_login');
+            localStorage.setItem('epmped_kicked_device', kickedBy);
+            localStorage.setItem('epmped_kicked_time', kickedAt);
+            localStorage.removeItem('epmped_session_id');
+
+            AuditLogService.logAuth({
+              action: 'AUTO_LOGOUT_CONCURRENT_SESSION',
+              user: currentUser,
+              description: `Sesi akun "${currentUser.name}" (${currentUser.role.toUpperCase()}) otomatis di-logout karena akun telah digunakan untuk masuk pada perangkat lain (${kickedBy}).`,
+              status: 'warning',
+            });
+
+            // Hapus sesi lokal seketika
+            setCurrentUser(null);
+            StorageService.setCurrentUser(null);
+          } else if (data.reason === 'no_active_session') {
+            // Jika server baru restart, daftarkan ulang sesi saat ini
+            registerSessionOnServer(currentUser, activeSessId);
+          }
+        }
+      } catch {
+        // Abaikan gangguan koneksi jaringan sementara
+      }
+    };
+
+    // Polling setiap 2.5 detik untuk deteksi kilat pergantian perangkat
+    const heartbeatTimer = window.setInterval(checkConcurrentSession, 2500);
+
+    // Cek langsung seketika tab/jendela dibuka kembali
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        checkConcurrentSession();
+      }
+    };
+
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+
+    return () => {
+      window.clearInterval(heartbeatTimer);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+    };
   }, [currentUser]);
 
   // =========================================================================
@@ -144,7 +294,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Periodic check every 5 seconds
     const intervalId = window.setInterval(checkTimeout, 5000);
 
-    // Immediate check on tab focus or visibility change (e.g. computer woke up from sleep or user returned to tab after >15 min)
+    // Immediate check on tab focus or visibility change
     const handleVisibilityOrFocus = () => {
       if (document.visibilityState === 'visible') {
         checkTimeout();
@@ -221,35 +371,65 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
+    // Buat ID sesi baru khusus untuk perangkat ini (menggantikan & me-logout perangkat sebelumnya)
+    const newSessionId = generateNewSessionId();
+    localStorage.setItem('epmped_session_id', newSessionId);
     localStorage.removeItem('epmped_session_expired');
+    localStorage.removeItem('epmped_kicked_device');
+    localStorage.removeItem('epmped_kicked_time');
     localStorage.setItem('epmped_last_active', String(Date.now()));
+
     setCurrentUser(found);
+    await registerSessionOnServer(found, newSessionId);
+
     AuditLogService.logAuth({
       action: 'LOGIN_SUCCESS',
       user: found,
-      description: `Pengguna "${found.name}" (${found.role.toUpperCase()}) berhasil login ke sistem.`,
+      description: `Pengguna "${found.name}" (${found.role.toUpperCase()}) berhasil login ke sistem pada ${getClientDeviceLabel()}.`,
       status: 'success',
+      metadata: { device: getClientDeviceLabel(), sessionId: newSessionId },
     });
     return { success: true };
   };
 
   const loginAs = (user: User) => {
+    const newSessionId = generateNewSessionId();
+    localStorage.setItem('epmped_session_id', newSessionId);
     localStorage.removeItem('epmped_session_expired');
+    localStorage.removeItem('epmped_kicked_device');
+    localStorage.removeItem('epmped_kicked_time');
     localStorage.setItem('epmped_last_active', String(Date.now()));
+
     // Refresh user state from users list in case role changed
     const freshUser = users.find((u) => u.id === user.id) || user;
     setCurrentUser(freshUser);
+    registerSessionOnServer(freshUser, newSessionId);
+
     AuditLogService.logAuth({
       action: 'LOGIN_SUCCESS',
       user: freshUser,
-      description: `Beralih sesi login sebagai "${freshUser.name}".`,
+      description: `Beralih sesi login sebagai "${freshUser.name}" pada ${getClientDeviceLabel()}.`,
       status: 'success',
+      metadata: { device: getClientDeviceLabel(), sessionId: newSessionId },
     });
   };
 
   const logout = () => {
+    const activeSessId = localStorage.getItem('epmped_session_id');
+    if (currentUser && activeSessId) {
+      fetch('/api/auth/session/logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUser.id, sessionId: activeSessId }),
+      }).catch(() => {});
+    }
+
+    localStorage.removeItem('epmped_session_id');
     localStorage.removeItem('epmped_session_expired');
+    localStorage.removeItem('epmped_kicked_device');
+    localStorage.removeItem('epmped_kicked_time');
     localStorage.removeItem('epmped_last_active');
+
     if (currentUser) {
       AuditLogService.logAuth({
         action: 'LOGOUT',

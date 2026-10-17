@@ -24,7 +24,8 @@ import {
   ShieldCheck,
   ShieldAlert,
   Download,
-  CalendarCheck2
+  CalendarCheck2,
+  Trash2
 } from 'lucide-react';
 
 export type ActiveNavTab = 'private' | 'public' | 'bidang' | 'surat' | 'iku' | 'tujuan-sasaran' | 'users' | 'security' | 'agenda';
@@ -45,7 +46,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenProfileModal,
 }) => {
   const { currentUser, isAdmin, isBidang, canAccessPublic, canAccessSurat } = useAuth();
-  const { getStorageUsage, resetAllData } = useStorage();
+  const { getStorageUsage, resetAllData, clearDemoData } = useStorage();
 
   if (!currentUser) return null;
 
@@ -472,13 +473,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </a>
 
               <button
+                onClick={async () => {
+                  const confirmed = window.confirm(
+                    '⚠️ KOSONGKAN DATA BAWAAN / DEMO?\n\nTindakan ini akan menghapus semua berkas arsip demo, surat dinas contoh, dan indikator demo agar sistem bersih siap digunakan untuk instansi.\n\nAkun Administrator Anda akan tetap tersimpan aman.\n\nLanjutkan mengosongkan data?'
+                  );
+                  if (confirmed) {
+                    const success = await clearDemoData();
+                    if (success) {
+                      alert('✅ Seluruh data bawaan (demo) berhasil dikosongkan! Sistem sekarang bersih dan tidak akan pernah terisi otomatis lagi.');
+                    } else {
+                      alert('❌ Gagal mengosongkan data bawaan.');
+                    }
+                  }
+                }}
+                className="w-full py-1.5 px-2.5 text-[11px] font-medium text-amber-700 hover:text-amber-800 bg-amber-50/80 hover:bg-amber-100/80 rounded-xl border border-amber-200/90 transition-all flex items-center justify-center gap-1.5 shadow-2xs active:scale-[0.99] cursor-pointer"
+                title="Hapus semua berkas arsip dan surat dinas contoh untuk mulai dari lembaran kosong"
+              >
+                <Trash2 className="w-3 h-3 text-amber-600" />
+                <span>Kosongkan Data Demo</span>
+              </button>
+
+              <button
                 onClick={() => {
                   if (window.confirm('Reset data ke kondisi awal (demo instansi)?')) {
                     resetAllData();
                   }
                 }}
-                className="w-full py-1.5 px-2.5 text-[11px] font-medium text-slate-600 hover:text-rose-600 bg-white hover:bg-rose-50 rounded-xl border border-slate-200 hover:border-rose-200 transition-all flex items-center justify-center gap-1.5 shadow-2xs active:scale-[0.99] cursor-pointer"
-                title="Kembalikan file dan surat contoh bawaan"
+                className="w-full py-1.5 px-2.5 text-[11px] font-medium text-slate-500 hover:text-rose-600 bg-white hover:bg-rose-50 rounded-xl border border-slate-200 hover:border-rose-200 transition-all flex items-center justify-center gap-1.5 shadow-2xs active:scale-[0.99] cursor-pointer"
+                title="Kembalikan file dan surat contoh bawaan jika diperlukan"
               >
                 <RefreshCw className="w-3 h-3 text-slate-400 group-hover:text-rose-500" />
                 <span>Muat Ulang Data Bawaan</span>

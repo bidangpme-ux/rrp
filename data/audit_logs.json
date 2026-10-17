@@ -1,5 +1,67 @@
 [
   {
+    "id": "log_1792258574649_yhdd5",
+    "timestamp": "2026-10-17T17:36:14.649Z",
+    "category": "auth",
+    "action": "LOGIN_SUCCESS",
+    "description": "Pengguna \"Administrator Sistem\" (ADMIN) berhasil login ke sistem pada Google Chrome (Windows PC).",
+    "userId": "user_admin",
+    "userName": "Administrator Sistem",
+    "userRole": "admin",
+    "status": "success",
+    "metadata": {
+      "device": "Google Chrome (Windows PC)",
+      "sessionId": "sess_1792258574469_jqjh2ed"
+    },
+    "serverReceivedAt": "2026-10-17T17:36:15.584Z"
+  },
+  {
+    "id": "log_1792257443779_esir4",
+    "timestamp": "2026-10-17T17:17:23.779Z",
+    "category": "auth",
+    "action": "LOGOUT",
+    "description": "Pengguna \"Administrator Sistem\" keluar (logout) dari sistem.",
+    "userId": "user_admin",
+    "userName": "Administrator Sistem",
+    "userRole": "admin",
+    "status": "success",
+    "serverReceivedAt": "2026-10-17T17:17:24.700Z"
+  },
+  {
+    "id": "audit_1792257224501_qanr",
+    "timestamp": "2026-10-17T17:13:44.501Z",
+    "category": "auth",
+    "action": "CONCURRENT_LOGIN_KICK",
+    "description": "Akun \"Administrator Sistem\" (ADMIN) masuk di perangkat baru \"Safari (iPhone 15 Pro)\" (IP: 127.0.0.1). Sesi pada perangkat sebelumnya (\"Chrome (Windows PC)\" - IP: 127.0.0.1) otomatis di-logout untuk mencegah penggunaan bersamaan di perangkat berbeda.",
+    "userId": "user_admin",
+    "userName": "Administrator Sistem",
+    "userRole": "admin",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "curl/7.88.1",
+    "deviceInfo": "Safari (iPhone 15 Pro)",
+    "status": "warning",
+    "metadata": {
+      "previousSessionId": "sess_device_1",
+      "previousDevice": "Chrome (Windows PC)",
+      "previousIp": "127.0.0.1",
+      "newSessionId": "sess_device_2",
+      "newDevice": "Safari (iPhone 15 Pro)",
+      "newIp": "127.0.0.1"
+    }
+  },
+  {
+    "id": "log_1792256646158_jcavy",
+    "timestamp": "2026-10-17T17:04:06.158Z",
+    "category": "auth",
+    "action": "LOGIN_SUCCESS",
+    "description": "Pengguna \"Administrator Sistem\" (ADMIN) berhasil login ke sistem.",
+    "userId": "user_admin",
+    "userName": "Administrator Sistem",
+    "userRole": "admin",
+    "status": "success",
+    "serverReceivedAt": "2026-10-17T17:04:07.099Z"
+  },
+  {
     "id": "log_1792247783811_02fbo",
     "timestamp": "2026-10-17T14:36:23.811Z",
     "category": "auth",

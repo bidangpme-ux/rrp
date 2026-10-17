@@ -52,6 +52,7 @@ interface StorageContextType {
   // Quota & counts
   getStorageUsage: (userId?: string) => { usedBytes: number; totalBytes: number; fileCount: number };
   resetAllData: () => void;
+  clearDemoData: () => Promise<boolean>;
 }
 
 const StorageContext = createContext<StorageContextType | undefined>(undefined);
@@ -600,6 +601,16 @@ export const StorageProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setActivePeriode(restoredPeriodes.find((p) => p.isAktif) || restoredPeriodes[0]);
   };
 
+  const clearDemoData = async (): Promise<boolean> => {
+    const ok = await StorageService.clearDemoData();
+    if (ok) {
+      setItems([]);
+      setSuratList([]);
+      setIKUList([]);
+    }
+    return ok;
+  };
+
   return (
     <StorageContext.Provider
       value={{
@@ -631,6 +642,7 @@ export const StorageProvider: React.FC<{ children: React.ReactNode }> = ({ child
         deleteVisi,
         getStorageUsage,
         resetAllData,
+        clearDemoData,
       }}
     >
       {children}
